@@ -1,18 +1,20 @@
-// Mock data for blocked time slots
-const blockedTimeSlots: Record<string, string[]> = {
+// lib/bookingUtils.ts
+
+// Server-compatible blocked time slots storage
+let blockedTimeSlots: Record<string, string[]> = {
   // Format: 'YYYY-MM-DD': ['HH:MM AM/PM', ...]
   "2024-05-15": ["09:00 AM", "10:00 AM", "11:00 AM"],
   "2024-05-16": ["12:00 PM", "01:00 PM"],
   "2024-05-20": ["02:00 PM", "03:00 PM", "04:00 PM"],
-}
+};
 
-// Mock data for blocked days (holidays, days off, etc.)
-const blockedDays: string[] = [
+// Server-compatible blocked days storage
+let blockedDays: string[] = [
   // Format: 'YYYY-MM-DD'
   "2024-05-25",
   "2024-05-26",
   "2024-07-04",
-]
+];
 
 // Customer interface
 export interface Customer {
@@ -97,37 +99,32 @@ export const getAllTimeSlots = (): string[] => {
 
 // Check if a day is blocked
 export const isDayBlocked = (date: Date): boolean => {
-  const blockedDays = getBlockedDays()
+  const blockedDaysList = getBlockedDays()
   const dateString = date.toISOString().split('T')[0]
-  return blockedDays.includes(dateString)
+  return blockedDaysList.includes(dateString)
 }
 
 // Get all blocked days
 export const getBlockedDays = (): string[] => {
-  const blockedDays = localStorage.getItem('blockedDays')
-  return blockedDays ? JSON.parse(blockedDays) : []
+  return blockedDays;
 }
 
 // Block an entire day
 export const blockDay = (date: Date): void => {
-  const blockedDays = getBlockedDays()
   const dateString = date.toISOString().split('T')[0]
   
   if (!blockedDays.includes(dateString)) {
     blockedDays.push(dateString)
-    localStorage.setItem('blockedDays', JSON.stringify(blockedDays))
   }
 }
 
 // Unblock a day
 export const unblockDay = (date: Date): void => {
-  const blockedDays = getBlockedDays()
   const dateString = date.toISOString().split('T')[0]
   const index = blockedDays.indexOf(dateString)
   
   if (index > -1) {
     blockedDays.splice(index, 1)
-    localStorage.setItem('blockedDays', JSON.stringify(blockedDays))
   }
 }
 
@@ -368,4 +365,3 @@ export const getCustomerById = (id: string): Customer | undefined => {
 export const getAllCustomers = (): Customer[] => {
   return [...customers]
 }
-

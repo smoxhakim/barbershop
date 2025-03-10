@@ -1,7 +1,9 @@
+// app/api/bookings/route.ts
+
 import { NextRequest, NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/db';
 import { Customer, Appointment } from '@/lib/models/Customer';
-import { getAvailableTimeSlotsSync } from '@/lib/bookingUtils';
+import { getAvailableTimeSlots } from '@/lib/bookingUtils';
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,8 +24,8 @@ export async function POST(request: NextRequest) {
     // Check if the time slot is available
     const bookingDate = new Date(date);
     
-    // Use the sync version to avoid async issues
-    const availableSlots = getAvailableTimeSlotsSync(bookingDate);
+    // Use the available time slots function
+    const availableSlots = getAvailableTimeSlots(bookingDate);
     
     if (!availableSlots.includes(time)) {
       return NextResponse.json(
@@ -104,4 +106,4 @@ export async function GET() {
       { status: 500 }
     );
   }
-} 
+}
