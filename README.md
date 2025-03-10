@@ -2,7 +2,7 @@
 
 A full-stack Next.js application for a barbershop appointment booking system with customer information storage and admin dashboard.
 
-## Features
+<!-- ## Features
 
 - **Customer-facing booking system**:
   - Date and time slot selection
@@ -126,4 +126,4 @@ Make sure to set the environment variables in your deployment platform's setting
 
 ## License
 
-[MIT](LICENSE) 
+[MIT](LICENSE)  -->
