@@ -4,7 +4,7 @@ import type React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Scissors } from "lucide-react"
-import BurgerMenu from "./BurgerMenu"
+import MobileNavigation from "./MobileNavigation"
 
 const Navbar: React.FC = () => {
   const pathname = usePathname()
@@ -37,14 +37,6 @@ const Navbar: React.FC = () => {
               Book Now
             </Link>
             <Link
-              href="/services"
-              className={`transition-colors duration-200 ${
-                pathname === "/services" ? "text-primary" : "text-foreground hover:text-primary"
-              }`}
-            >
-              Services
-            </Link>
-            <Link
               href="/admin"
               className={`transition-colors duration-200 ${
                 pathname === "/admin" ? "text-primary" : "text-foreground hover:text-primary"
@@ -54,8 +46,8 @@ const Navbar: React.FC = () => {
             </Link>
           </nav>
 
-          {/* Mobile Burger Menu */}
-          <BurgerMenu />
+          {/* Mobile Navigation */}
+          <MobileNavigation />
         </div>
       </div>
     </header>
