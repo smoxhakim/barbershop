@@ -43,6 +43,10 @@ export interface AppointmentType {
   notes?: string;
 }
 
+// Export type aliases for backward compatibility
+export type Customer = CustomerType;
+export type Appointment = AppointmentType;
+
 export interface BlockedDayType {
   id: string;
   date: string;

@@ -16,25 +16,37 @@ const DayManager: React.FC<DayManagerProps> = ({ onUpdate }) => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined)
   const { toast } = useToast()
 
-  const handleBlockDay = (date: Date) => {
-    // If the day is already blocked, unblock it
-    if (isDayBlocked(date)) {
-      unblockDay(date)
+  const handleBlockDay = async (date: Date) => {
+    try {
+      // Check if the day is already blocked
+      const isBlocked = await isDayBlocked(date)
+      
+      if (isBlocked) {
+        // If the day is already blocked, unblock it
+        await unblockDay(date)
+        toast({
+          title: "Day Unblocked",
+          description: `${format(date, 'MMMM d, yyyy')} is now available for bookings.`,
+        })
+      } else {
+        // Otherwise, block it
+        await blockDay(date)
+        toast({
+          title: "Day Blocked",
+          description: `${format(date, 'MMMM d, yyyy')} has been marked as unavailable.`,
+        })
+      }
+      
+      // Trigger the update callback
+      onUpdate()
+    } catch (error) {
+      console.error('Error managing day availability:', error)
       toast({
-        title: "Day Unblocked",
-        description: `${format(date, 'MMMM d, yyyy')} is now available for bookings.`,
-      })
-    } else {
-      // Otherwise, block it
-      blockDay(date)
-      toast({
-        title: "Day Blocked",
-        description: `${format(date, 'MMMM d, yyyy')} has been marked as unavailable.`,
+        title: "Error",
+        description: "There was a problem updating the day's availability.",
+        variant: "destructive"
       })
     }
-    
-    // Trigger the update callback
-    onUpdate()
   }
 
   return (
