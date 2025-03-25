@@ -1,31 +1,18 @@
 // lib/bookingUtils.ts
+// This file contains both server-side and client-side utility functions for the booking system
 
-// Server-compatible blocked time slots storage
-let blockedTimeSlots: Record<string, string[]> = {
-  // Format: 'YYYY-MM-DD': ['HH:MM AM/PM', ...]
-  "2024-05-15": ["09:00 AM", "10:00 AM", "11:00 AM"],
-  "2024-05-16": ["12:00 PM", "01:00 PM"],
-  "2024-05-20": ["02:00 PM", "03:00 PM", "04:00 PM"],
-};
+// We'll use this to determine if we're running on the client or server
+const isClient = typeof window !== 'undefined';
 
-// Server-compatible blocked days storage
-let blockedDays: string[] = [
-  // Format: 'YYYY-MM-DD'
-  "2024-05-25",
-  "2024-05-26",
-  "2024-07-04",
-];
-
-// Customer interface
-export interface Customer {
+// Type definitions for client-side usage
+export interface CustomerType {
   id: string;
   name: string;
   email: string;
   phone: string;
 }
 
-// Appointment interface
-export interface Appointment {
+export interface AppointmentType {
   id: string;
   customerId: string;
   date: string;
@@ -35,49 +22,18 @@ export interface Appointment {
   notes?: string;
 }
 
-// Mock data for customers
-const customers: Customer[] = [
-  {
-    id: '1',
-    name: 'John Doe',
-    email: 'john@example.com',
-    phone: '555-123-4567'
-  },
-  {
-    id: '2',
-    name: 'Jane Smith',
-    email: 'jane@example.com',
-    phone: '555-987-6543'
-  }
-];
+export interface BlockedDayType {
+  id: string;
+  date: string;
+  reason: string;
+}
 
-// Mock data for appointments
-const appointments: Appointment[] = [
-  {
-    id: '1',
-    customerId: '1',
-    date: '2024-05-17',
-    time: '09:00 AM',
-    status: 'booked',
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: '2',
-    customerId: '1',
-    date: '2024-05-18',
-    time: '02:00 PM',
-    status: 'booked',
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: '3',
-    customerId: '2',
-    date: '2024-05-19',
-    time: '11:00 AM',
-    status: 'booked',
-    createdAt: new Date().toISOString()
-  }
-];
+export interface BlockedTimeSlotType {
+  id: string;
+  date: string;
+  time: string;
+  reason: string;
+}
 
 // Format date as YYYY-MM-DD
 export const formatDateKey = (date: Date): string => {
@@ -97,155 +53,338 @@ export const getAllTimeSlots = (): string[] => {
   return slots
 }
 
-// Check if a day is blocked
-export const isDayBlocked = (date: Date): boolean => {
-  const blockedDaysList = getBlockedDays()
-  const dateString = date.toISOString().split('T')[0]
-  return blockedDaysList.includes(dateString)
+// Check if a day is blocked (server-side version with database access)
+export const isDayBlocked = async (date: Date): Promise<boolean> => {
+  try {
+    await connectToDatabase();
+    const formattedDate = new Date(date.toISOString().split('T')[0]);
+    
+    // Check if the day exists in the blocked days collection
+    const blockedDay = await BlockedDay.findOne({
+      date: {
+        $gte: new Date(formattedDate.setHours(0, 0, 0, 0)),
+        $lt: new Date(formattedDate.setHours(23, 59, 59, 999))
+      }
+    });
+    
+    return !!blockedDay;
+  } catch (error) {
+    console.error('Error checking if day is blocked:', error);
+    return false;
+  }
+}
+
+// Client-side version of isDayBlocked for use in client components
+// This doesn't make database calls and returns mock data for development
+export const isDayBlockedClient = (date: Date): boolean => {
+  // For development/client-side, block Sundays and some specific dates
+  // In production, this would be replaced with an API call
+  
+  // Block all Sundays
+  if (date.getDay() === 0) {
+    return true
+  }
+  
+  // Block some specific dates (e.g., holidays)
+  const dateStr = formatDateKey(date)
+  const blockedDates = [
+    '2025-04-01', // Example holiday
+    '2025-04-15', // Example holiday
+    '2025-05-01'  // Example holiday
+  ]
+  
+  return blockedDates.includes(dateStr)
 }
 
 // Get all blocked days
-export const getBlockedDays = (): string[] => {
-  return blockedDays;
+export const getBlockedDays = async (): Promise<string[]> => {
+  try {
+    await connectToDatabase();
+    
+    // Get all blocked days from the database
+    const blockedDays = await BlockedDay.find().sort({ date: 1 });
+    
+    // Format dates as strings (YYYY-MM-DD)
+    return blockedDays.map(day => formatDateKey(day.date));
+  } catch (error) {
+    console.error('Error fetching blocked days:', error);
+    return [];
+  }
 }
 
 // Block an entire day
-export const blockDay = (date: Date): void => {
-  const dateString = date.toISOString().split('T')[0]
-  
-  if (!blockedDays.includes(dateString)) {
-    blockedDays.push(dateString)
+export const blockDay = async (date: Date, reason: string = 'Not available'): Promise<boolean> => {
+  try {
+    await connectToDatabase();
+    const formattedDate = new Date(date.toISOString().split('T')[0]);
+    
+    // Check if day is already blocked
+    const existingBlockedDay = await BlockedDay.findOne({
+      date: {
+        $gte: new Date(formattedDate.setHours(0, 0, 0, 0)),
+        $lt: new Date(formattedDate.setHours(23, 59, 59, 999))
+      }
+    });
+    
+    if (existingBlockedDay) {
+      return false; // Day already blocked
+    }
+    
+    // Create new blocked day
+    await BlockedDay.create({
+      date: new Date(date.toISOString().split('T')[0]),
+      reason
+    });
+    
+    return true;
+  } catch (error) {
+    console.error('Error blocking day:', error);
+    return false;
   }
 }
 
 // Unblock a day
-export const unblockDay = (date: Date): void => {
-  const dateString = date.toISOString().split('T')[0]
-  const index = blockedDays.indexOf(dateString)
-  
-  if (index > -1) {
-    blockedDays.splice(index, 1)
+export const unblockDay = async (date: Date): Promise<boolean> => {
+  try {
+    await connectToDatabase();
+    const formattedDate = new Date(date.toISOString().split('T')[0]);
+    
+    // Find and delete the blocked day
+    const result = await BlockedDay.findOneAndDelete({
+      date: {
+        $gte: new Date(formattedDate.setHours(0, 0, 0, 0)),
+        $lt: new Date(formattedDate.setHours(23, 59, 59, 999))
+      }
+    });
+    
+    return !!result;
+  } catch (error) {
+    console.error('Error unblocking day:', error);
+    return false;
   }
 }
 
-// Get available time slots for a given date
-export const getAvailableTimeSlots = (date: Date): string[] => {
+// Get available time slots for a given date (server-side version with database access)
+export const getAvailableTimeSlots = async (date: Date): Promise<string[]> => {
   const dateKey = formatDateKey(date)
   
   // If the day is blocked, no slots are available
-  if (isDayBlocked(date)) {
+  if (await isDayBlocked(date)) {
     return []
   }
   
   const allSlots = getAllTimeSlots()
 
-  // Get blocked slots for the date
-  const blockedSlots = blockedTimeSlots[dateKey] || []
+  try {
+    await connectToDatabase();
+    
+    // Get blocked slots for the date from the database
+    const blockedTimeSlots = await getBlockedTimeSlots(date);
+    
+    // Get booked slots for the date from the database
+    const bookedAppointments = await Appointment.find({
+      date: {
+        $gte: new Date(new Date(dateKey).setHours(0, 0, 0, 0)),
+        $lt: new Date(new Date(dateKey).setHours(23, 59, 59, 999))
+      },
+      status: 'booked'
+    });
+    
+    const bookedSlots = bookedAppointments.map(appointment => appointment.time);
 
-  // Get booked slots for the date
-  const bookedSlots = appointments
-    .filter(appointment => appointment.date === dateKey && appointment.status === 'booked')
-    .map(appointment => appointment.time)
+    // Filter out blocked and booked slots
+    return allSlots.filter((slot) => !blockedTimeSlots.includes(slot) && !bookedSlots.includes(slot));
+  } catch (error) {
+    console.error('Error fetching available time slots:', error);
+    return [];
+  }
+}
 
-  // Filter out blocked and booked slots
-  return allSlots.filter((slot) => !blockedSlots.includes(slot) && !bookedSlots.includes(slot))
+// Client-side version of getAvailableTimeSlots for use in client components
+// This doesn't make database calls and returns mock data for development
+export const getAvailableTimeSlotsClient = (date: Date): string[] => {
+  const dateKey = formatDateKey(date)
+  const allSlots = getAllTimeSlots()
+  
+  // For development/client-side, return all slots except a few random ones
+  // In production, this would be replaced with an API call
+  const mockBookedSlots = ["10:00 AM", "2:00 PM", "5:00 PM"]
+  
+  // If it's a weekend, block more slots to simulate higher demand
+  const dayOfWeek = new Date(dateKey).getDay()
+  if (dayOfWeek === 0 || dayOfWeek === 6) { // Saturday or Sunday
+    mockBookedSlots.push("11:00 AM", "3:00 PM", "4:00 PM")
+  }
+  
+  return allSlots.filter(slot => !mockBookedSlots.includes(slot))
 }
 
 // Block a time slot
-export const blockTimeSlot = (date: Date, timeSlot: string): void => {
-  const dateKey = formatDateKey(date)
-
-  if (!blockedTimeSlots[dateKey]) {
-    blockedTimeSlots[dateKey] = []
-  }
-
-  if (!blockedTimeSlots[dateKey].includes(timeSlot)) {
-    blockedTimeSlots[dateKey].push(timeSlot)
+export const blockTimeSlot = async (date: Date, timeSlot: string, reason: string = 'Not available'): Promise<boolean> => {
+  try {
+    await connectToDatabase();
+    const formattedDate = new Date(date.toISOString().split('T')[0]);
+    
+    // Check if time slot is already blocked
+    const existingBlockedSlot = await BlockedTimeSlot.findOne({
+      date: {
+        $gte: new Date(formattedDate.setHours(0, 0, 0, 0)),
+        $lt: new Date(formattedDate.setHours(23, 59, 59, 999))
+      },
+      time: timeSlot
+    });
+    
+    if (existingBlockedSlot) {
+      return false; // Time slot already blocked
+    }
+    
+    // Create new blocked time slot
+    await BlockedTimeSlot.create({
+      date: new Date(date.toISOString().split('T')[0]),
+      time: timeSlot,
+      reason
+    });
+    
+    return true;
+  } catch (error) {
+    console.error('Error blocking time slot:', error);
+    return false;
   }
 }
 
 // Unblock a time slot
-export const unblockTimeSlot = (date: Date, timeSlot: string): void => {
-  const dateKey = formatDateKey(date)
-
-  if (blockedTimeSlots[dateKey]) {
-    blockedTimeSlots[dateKey] = blockedTimeSlots[dateKey].filter((slot) => slot !== timeSlot)
-
-    if (blockedTimeSlots[dateKey].length === 0) {
-      delete blockedTimeSlots[dateKey]
-    }
+export const unblockTimeSlot = async (date: Date, timeSlot: string): Promise<boolean> => {
+  try {
+    await connectToDatabase();
+    const formattedDate = new Date(date.toISOString().split('T')[0]);
+    
+    // Find and delete the blocked time slot
+    const result = await BlockedTimeSlot.findOneAndDelete({
+      date: {
+        $gte: new Date(formattedDate.setHours(0, 0, 0, 0)),
+        $lt: new Date(formattedDate.setHours(23, 59, 59, 999))
+      },
+      time: timeSlot
+    });
+    
+    return !!result;
+  } catch (error) {
+    console.error('Error unblocking time slot:', error);
+    return false;
   }
 }
 
-// Get all blocked time slots
-export const getBlockedTimeSlots = (date: Date): string[] => {
-  const dateKey = formatDateKey(date)
-  return blockedTimeSlots[dateKey] || []
+// Get all blocked time slots for a specific date
+export const getBlockedTimeSlots = async (date: Date): Promise<string[]> => {
+  try {
+    await connectToDatabase();
+    const formattedDate = new Date(date.toISOString().split('T')[0]);
+    
+    // Get blocked time slots from the database
+    const blockedSlots = await BlockedTimeSlot.find({
+      date: {
+        $gte: new Date(formattedDate.setHours(0, 0, 0, 0)),
+        $lt: new Date(formattedDate.setHours(23, 59, 59, 999))
+      }
+    });
+    
+    return blockedSlots.map(slot => slot.time);
+  } catch (error) {
+    console.error('Error fetching blocked time slots:', error);
+    return [];
+  }
 }
 
-// Book an appointment
-export const bookAppointment = (
+// Book an appointment - client-side helper function
+export const bookAppointment = async (
   date: Date,
   timeSlot: string,
   name: string,
   email: string,
   phone: string,
   notes?: string
-): { success: boolean; appointmentId?: string; customerId?: string } => {
+): Promise<{ success: boolean; appointmentId?: string; customerId?: string; error?: string }> => {
   const dateKey = formatDateKey(date)
   
   // Check if the day is blocked
-  if (isDayBlocked(date)) {
-    return { success: false }
+  if (await isDayBlocked(date)) {
+    return { success: false, error: 'This day is not available for booking' }
   }
   
-  const availableSlots = getAvailableTimeSlots(date)
+  const availableSlots = await getAvailableTimeSlots(date)
 
   if (!availableSlots.includes(timeSlot)) {
-    return { success: false }
+    return { success: false, error: 'This time slot is not available' }
   }
 
-  // Find or create customer
-  let customer = customers.find(c => c.email === email)
-  
-  if (!customer) {
-    // Create new customer
-    const newCustomer: Customer = {
-      id: (customers.length + 1).toString(),
-      name,
-      email,
-      phone
+  try {
+    // Make API call to book appointment
+    const response = await fetch('/api/bookings', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name,
+        email,
+        phone,
+        date: dateKey,
+        time: timeSlot,
+        notes
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to book appointment');
     }
-    customers.push(newCustomer)
-    customer = newCustomer
-  } else {
-    // Update customer information
-    customer.name = name
-    customer.phone = phone
-  }
 
-  // Create appointment
-  const newAppointment: Appointment = {
-    id: (appointments.length + 1).toString(),
-    customerId: customer.id,
-    date: dateKey,
-    time: timeSlot,
-    status: 'booked',
-    createdAt: new Date().toISOString(),
-    notes
-  }
-  
-  appointments.push(newAppointment)
-
-  return { 
-    success: true, 
-    appointmentId: newAppointment.id,
-    customerId: customer.id
+    return { 
+      success: true, 
+      appointmentId: data.data.appointment._id,
+      customerId: data.data.customer.id
+    };
+  } catch (error: any) {
+    console.error('Error booking appointment:', error);
+    return { success: false, error: error.message || 'Failed to book appointment' };
   }
 }
 
-// Update an appointment
-export const updateAppointment = (
+// Client-side version of bookAppointment for use in client components
+// This doesn't make database calls and simulates a successful booking for development
+export const bookAppointmentClient = (
+  date: Date,
+  timeSlot: string,
+  name: string,
+  email: string,
+  phone: string,
+  notes?: string
+): { success: boolean; appointmentId?: string; customerId?: string; error?: string } => {
+  const dateKey = formatDateKey(date)
+  
+  // Check if the day is blocked using the client-side function
+  if (isDayBlockedClient(date)) {
+    return { success: false, error: 'This day is not available for booking' }
+  }
+  
+  // Get available slots using the client-side function
+  const availableSlots = getAvailableTimeSlotsClient(date)
+  
+  if (!availableSlots.includes(timeSlot)) {
+    return { success: false, error: 'This time slot is not available' }
+  }
+  
+  // For development, simulate a successful booking
+  return { 
+    success: true, 
+    appointmentId: 'dev-appointment-' + Date.now(),
+    customerId: 'dev-customer-' + Date.now()
+  }
+}
+
+// Update an appointment - client-side helper function
+export const updateAppointment = async (
   appointmentId: string,
   updates: {
     date?: Date;
@@ -253,115 +392,199 @@ export const updateAppointment = (
     status?: 'booked' | 'completed' | 'cancelled';
     notes?: string;
   }
-): { success: boolean; appointment?: Appointment } => {
-  const appointmentIndex = appointments.findIndex(a => a.id === appointmentId)
-  
-  if (appointmentIndex === -1) {
-    return { success: false }
-  }
-  
-  const appointment = { ...appointments[appointmentIndex] }
-  
-  // If updating date or time, check availability
-  if (updates.date || updates.time) {
-    const newDate = updates.date ? formatDateKey(updates.date) : appointment.date
-    const newTime = updates.time || appointment.time
-    
-    // Check if the day is blocked
-    if (updates.date && isDayBlocked(updates.date)) {
-      return { success: false }
-    }
-    
-    // If date or time is different, check availability
-    if (newDate !== appointment.date || newTime !== appointment.time) {
-      // Get available slots for the new date
-      const availableSlots = updates.date 
-        ? getAvailableTimeSlots(updates.date)
-        : getAvailableTimeSlots(new Date(appointment.date))
-      
-      // Add the current time slot to available slots (since we're moving this appointment)
-      if (newDate === appointment.date && !availableSlots.includes(newTime)) {
-        availableSlots.push(appointment.time)
+): Promise<{ success: boolean; appointment?: AppointmentType; error?: string }> => {
+  try {
+    // If updating date or time, check availability
+    if (updates.date) {
+      // Check if the day is blocked
+      if (await isDayBlocked(updates.date)) {
+        return { success: false, error: 'This day is not available for booking' }
       }
       
       // Check if the new time slot is available
-      if (!availableSlots.includes(newTime)) {
-        return { success: false }
+      if (updates.time) {
+        // Get the current appointment to exclude it from availability check
+        const currentResponse = await fetch(`/api/bookings/${appointmentId}`);
+        if (!currentResponse.ok) {
+          throw new Error('Failed to fetch current appointment details');
+        }
+        const currentData = await currentResponse.json();
+        const currentAppointment = currentData.data;
+        
+        // Only check availability if date or time is changing
+        const isChangingDateTime = 
+          formatDateKey(updates.date) !== formatDateKey(new Date(currentAppointment.date)) || 
+          updates.time !== currentAppointment.time;
+        
+        if (isChangingDateTime) {
+          const availableSlots = await getAvailableTimeSlots(updates.date);
+          if (!availableSlots.includes(updates.time)) {
+            return { success: false, error: 'The selected time slot is not available' };
+          }
+        }
       }
     }
     
-    // Update the appointment
-    if (updates.date) {
-      appointment.date = formatDateKey(updates.date)
+    // Prepare the update data
+    const updateData: any = {};
+    if (updates.date) updateData.date = formatDateKey(updates.date);
+    if (updates.time) updateData.time = updates.time;
+    if (updates.status) updateData.status = updates.status;
+    if (updates.notes !== undefined) updateData.notes = updates.notes;
+    
+    // Make API call to update appointment
+    const response = await fetch(`/api/bookings/${appointmentId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(updateData),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to update appointment');
+    }
+
+    // Map the response to AppointmentType
+    const appointment: AppointmentType = {
+      id: data.data._id,
+      customerId: data.data.customerId,
+      date: new Date(data.data.date).toISOString(),
+      time: data.data.time,
+      status: data.data.status,
+      createdAt: new Date(data.data.createdAt).toISOString(),
+      notes: data.data.notes
+    };
+
+    return { 
+      success: true,
+      appointment
+    };
+  } catch (error: any) {
+    console.error('Error updating appointment:', error);
+    return { success: false, error: error.message || 'Failed to update appointment' };
+  }
+}
+
+// Cancel an appointment - client-side helper function
+export const cancelAppointment = async (appointmentId: string): Promise<{ success: boolean; error?: string }> => {
+  try {
+    // Make API call to cancel appointment
+    const response = await fetch(`/api/bookings/${appointmentId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ status: 'cancelled' }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to cancel appointment');
+    }
+
+    return { success: true };
+  } catch (error: any) {
+    console.error('Error cancelling appointment:', error);
+    return { success: false, error: error.message || 'Failed to cancel appointment' };
+  }
+}
+
+// Get all appointments - client-side helper function
+export const getAllAppointments = async (): Promise<AppointmentType[]> => {
+  try {
+    const response = await fetch('/api/bookings');
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch appointments');
     }
     
-    if (updates.time) {
-      appointment.time = updates.time
-    }
-  }
-  
-  // Update status if provided
-  if (updates.status) {
-    appointment.status = updates.status
-  }
-  
-  // Update notes if provided
-  if (updates.notes !== undefined) {
-    appointment.notes = updates.notes
-  }
-  
-  // Update the appointment in the array
-  appointments[appointmentIndex] = appointment
-  
-  return { 
-    success: true,
-    appointment
+    const data = await response.json();
+    
+    // Map the data to the AppointmentType interface
+    return data.data.map((appointment: any) => ({
+      id: appointment._id,
+      customerId: appointment.customerId._id,
+      date: new Date(appointment.date).toISOString(),
+      time: appointment.time,
+      status: appointment.status,
+      createdAt: new Date(appointment.createdAt).toISOString(),
+      notes: appointment.notes
+    }));
+  } catch (error) {
+    console.error('Error fetching appointments:', error);
+    return [];
   }
 }
 
-// Cancel an appointment
-export const cancelAppointment = (appointmentId: string): { success: boolean } => {
-  const appointmentIndex = appointments.findIndex(a => a.id === appointmentId)
-  
-  if (appointmentIndex === -1) {
-    return { success: false }
-  }
-  
-  appointments[appointmentIndex].status = 'cancelled'
-  
-  return { success: true }
-}
-
-// Get all appointments
-export const getAllAppointments = (): (Appointment & { customer: Customer })[] => {
-  return appointments.map(appointment => {
-    const customer = customers.find(c => c.id === appointment.customerId) || {
-      id: 'unknown',
-      name: 'Unknown Customer',
-      email: 'unknown@example.com',
-      phone: 'N/A'
+// Get appointments for a specific date - client-side helper function
+export const getAppointmentsForDate = async (date: Date): Promise<AppointmentType[]> => {
+  try {
+    const dateString = formatDateKey(date);
+    const response = await fetch(`/api/bookings?date=${dateString}`);
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch appointments for date');
     }
     
-    return {
-      ...appointment,
-      customer
+    const data = await response.json();
+    
+    // Map the data to the AppointmentType interface
+    return data.data.map((appointment: any) => ({
+      id: appointment._id,
+      customerId: appointment.customerId._id,
+      date: new Date(appointment.date).toISOString(),
+      time: appointment.time,
+      status: appointment.status,
+      createdAt: new Date(appointment.createdAt).toISOString(),
+      notes: appointment.notes
+    }));
+  } catch (error) {
+    console.error('Error fetching appointments for date:', error);
+    return [];
+  }
+}
+
+// Get customer by ID - client-side helper function
+export const getCustomerById = async (id: string): Promise<any | undefined> => {
+  try {
+    const response = await fetch(`/api/customers/${id}`);
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to fetch customer');
     }
-  })
+
+    return data.data;
+  } catch (error) {
+    console.error('Error fetching customer:', error);
+    return undefined;
+  }
 }
 
-// Get appointments for a specific date
-export const getAppointmentsForDate = (date: Date): (Appointment & { customer: Customer })[] => {
-  const dateKey = formatDateKey(date)
-  
-  return getAllAppointments().filter(appointment => appointment.date === dateKey)
-}
-
-// Get customer by ID
-export const getCustomerById = (id: string): Customer | undefined => {
-  return customers.find(c => c.id === id)
-}
-
-// Get all customers
-export const getAllCustomers = (): Customer[] => {
-  return [...customers]
+// Get all customers - client-side helper function
+export const getAllCustomers = async (): Promise<CustomerType[]> => {
+  try {
+    const response = await fetch('/api/customers');
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch customers');
+    }
+    
+    const data = await response.json();
+    
+    // Map the data to the CustomerType interface
+    return data.data.map((customer: any) => ({
+      id: customer._id,
+      name: customer.name,
+      email: customer.email,
+      phone: customer.phone
+    }));
+  } catch (error) {
+    console.error('Error fetching customers:', error);
+    return [];
+  }
 }

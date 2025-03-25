@@ -4,7 +4,7 @@ import type React from "react"
 import { motion } from "framer-motion"
 import { Calendar } from "@/components/ui/calendar"
 import { CalendarCheck, CalendarX } from "lucide-react"
-import { isDayBlocked } from "@/lib/bookingUtils"
+import { isDayBlockedClient } from "@/lib/clientBookingUtils"
 
 interface DatePickerProps {
   date: Date | undefined
@@ -90,11 +90,11 @@ const DatePicker: React.FC<DatePickerProps> = ({
             date < today || 
             date.getDay() === 0 || 
             date > thirtyDaysLater || 
-            isDayBlocked(date)
+            isDayBlockedClient(date)
           )
         }}
         modifiers={{
-          blocked: (date) => isDayBlocked(date),
+          blocked: (date) => isDayBlockedClient(date),
         }}
         modifiersClassNames={{
           blocked: "bg-destructive/20 text-destructive hover:bg-destructive/30",

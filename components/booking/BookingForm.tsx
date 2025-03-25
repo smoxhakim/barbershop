@@ -5,7 +5,7 @@ import { useState } from "react"
 import { motion } from "framer-motion"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
-import { bookAppointment } from "@/lib/bookingUtils"
+import { bookAppointmentClient } from "@/lib/clientBookingUtils"
 
 interface BookingFormProps {
   selectedDate: Date | undefined
@@ -36,8 +36,8 @@ const BookingForm: React.FC<BookingFormProps> = ({ selectedDate, selectedTime })
     setIsSubmitting(true)
 
     try {
-      // Book the appointment using our local storage approach
-      const result = bookAppointment(
+      // Book the appointment using our client-side function
+      const result = bookAppointmentClient(
         selectedDate,
         selectedTime,
         name,

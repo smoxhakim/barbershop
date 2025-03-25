@@ -5,7 +5,7 @@ import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { Clock } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { getAvailableTimeSlots } from "@/lib/bookingUtils"
+import { getAvailableTimeSlotsClient } from "@/lib/clientBookingUtils"
 
 interface TimeSlotsProps {
   selectedDate: Date | undefined
@@ -22,8 +22,8 @@ const TimeSlots: React.FC<TimeSlotsProps> = ({ selectedDate, selectedTime, setSe
     if (selectedDate) {
       setIsLoading(true)
       
-      // Get available slots
-      const slots = getAvailableTimeSlots(selectedDate)
+      // Get available slots using the client-side function
+      const slots = getAvailableTimeSlotsClient(selectedDate)
       setAvailableSlots(slots)
       setIsLoading(false)
     } else {
