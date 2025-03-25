@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/db';
-import { Customer } from '@/lib/models/Customer';
+import Customer from '@/lib/models/Customer';
 
 // Get all customers
 export async function GET(request: NextRequest) {

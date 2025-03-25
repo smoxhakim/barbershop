@@ -2,7 +2,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/db';
-import { BlockedDay } from '@/lib/models/BlockedDay';
+import BlockedDay from '@/lib/models/BlockedDay';
 
 // Get all blocked days
 export async function GET() {

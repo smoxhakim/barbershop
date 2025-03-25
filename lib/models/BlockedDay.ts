@@ -28,5 +28,7 @@ const BlockedDaySchema: Schema = new Schema(
 BlockedDaySchema.index({ date: 1 }, { unique: true });
 
 // Export the model
-export const BlockedDay = mongoose.models.BlockedDay || 
+const BlockedDay = mongoose.models.BlockedDay || 
   mongoose.model<IBlockedDay>('BlockedDay', BlockedDaySchema);
+
+export default BlockedDay;

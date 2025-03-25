@@ -1,8 +1,29 @@
 // lib/bookingUtils.ts
-// This file contains both server-side and client-side utility functions for the booking system
+// This file contains server-side utility functions for the booking system
+// Client-side functions have been moved to clientBookingUtils.ts
 
-// We'll use this to determine if we're running on the client or server
-const isClient = typeof window !== 'undefined';
+// Only import server-side modules if we're running on the server
+let connectToDatabase: any = null;
+let Customer: any = null;
+let Appointment: any = null;
+let BlockedDay: any = null;
+let BlockedTimeSlot: any = null;
+
+// We need to check if we're on the client side to avoid errors
+if (typeof window === 'undefined') {
+  // Server-side only imports
+  const dbModule = require('./db');
+  const CustomerModule = require('./models/Customer');
+  const AppointmentModule = require('./models/Appointment');
+  const BlockedDayModule = require('./models/BlockedDay');
+  const BlockedTimeSlotModule = require('./models/BlockedTimeSlot');
+  
+  connectToDatabase = dbModule.default || dbModule;
+  Customer = CustomerModule.default || CustomerModule;
+  Appointment = AppointmentModule.default || AppointmentModule;
+  BlockedDay = BlockedDayModule.default || BlockedDayModule;
+  BlockedTimeSlot = BlockedTimeSlotModule.default || BlockedTimeSlotModule;
+}
 
 // Type definitions for client-side usage
 export interface CustomerType {
@@ -55,6 +76,12 @@ export const getAllTimeSlots = (): string[] => {
 
 // Check if a day is blocked (server-side version with database access)
 export const isDayBlocked = async (date: Date): Promise<boolean> => {
+  // If we're on the client side, this function shouldn't be called
+  if (typeof window !== 'undefined' || !connectToDatabase || !BlockedDay) {
+    console.error('isDayBlocked should only be called on the server');
+    return false;
+  }
+  
   try {
     await connectToDatabase();
     const formattedDate = new Date(date.toISOString().split('T')[0]);
@@ -98,6 +125,12 @@ export const isDayBlockedClient = (date: Date): boolean => {
 
 // Get all blocked days
 export const getBlockedDays = async (): Promise<string[]> => {
+  // If we're on the client side, this function shouldn't be called
+  if (typeof window !== 'undefined' || !connectToDatabase || !BlockedDay) {
+    console.error('getBlockedDays should only be called on the server');
+    return [];
+  }
+  
   try {
     await connectToDatabase();
     
@@ -105,7 +138,7 @@ export const getBlockedDays = async (): Promise<string[]> => {
     const blockedDays = await BlockedDay.find().sort({ date: 1 });
     
     // Format dates as strings (YYYY-MM-DD)
-    return blockedDays.map(day => formatDateKey(day.date));
+    return blockedDays.map((day: any) => formatDateKey(day.date));
   } catch (error) {
     console.error('Error fetching blocked days:', error);
     return [];
@@ -166,6 +199,12 @@ export const unblockDay = async (date: Date): Promise<boolean> => {
 
 // Get available time slots for a given date (server-side version with database access)
 export const getAvailableTimeSlots = async (date: Date): Promise<string[]> => {
+  // If we're on the client side, this function shouldn't be called
+  if (typeof window !== 'undefined' || !connectToDatabase || !Appointment) {
+    console.error('getAvailableTimeSlots should only be called on the server');
+    return [];
+  }
+  
   const dateKey = formatDateKey(date)
   
   // If the day is blocked, no slots are available
@@ -190,10 +229,10 @@ export const getAvailableTimeSlots = async (date: Date): Promise<string[]> => {
       status: 'booked'
     });
     
-    const bookedSlots = bookedAppointments.map(appointment => appointment.time);
+    const bookedSlots = bookedAppointments.map((appointment: any) => appointment.time);
 
     // Filter out blocked and booked slots
-    return allSlots.filter((slot) => !blockedTimeSlots.includes(slot) && !bookedSlots.includes(slot));
+    return allSlots.filter((slot: string) => !blockedTimeSlots.includes(slot) && !bookedSlots.includes(slot));
   } catch (error) {
     console.error('Error fetching available time slots:', error);
     return [];
@@ -276,6 +315,12 @@ export const unblockTimeSlot = async (date: Date, timeSlot: string): Promise<boo
 
 // Get all blocked time slots for a specific date
 export const getBlockedTimeSlots = async (date: Date): Promise<string[]> => {
+  // If we're on the client side, this function shouldn't be called
+  if (typeof window !== 'undefined' || !connectToDatabase || !BlockedTimeSlot) {
+    console.error('getBlockedTimeSlots should only be called on the server');
+    return [];
+  }
+  
   try {
     await connectToDatabase();
     const formattedDate = new Date(date.toISOString().split('T')[0]);
@@ -288,7 +333,7 @@ export const getBlockedTimeSlots = async (date: Date): Promise<string[]> => {
       }
     });
     
-    return blockedSlots.map(slot => slot.time);
+    return blockedSlots.map((slot: any) => slot.time);
   } catch (error) {
     console.error('Error fetching blocked time slots:', error);
     return [];

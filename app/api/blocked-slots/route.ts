@@ -2,7 +2,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/db';
-import { BlockedTimeSlot } from '@/lib/models/BlockedTimeSlot';
+import BlockedTimeSlot from '@/lib/models/BlockedTimeSlot';
 
 // Get all blocked time slots or filter by date
 export async function GET(request: NextRequest) {

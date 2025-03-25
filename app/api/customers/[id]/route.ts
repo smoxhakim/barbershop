@@ -2,7 +2,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/db';
-import { Customer, Appointment } from '@/lib/models/Customer';
+import Customer from '@/lib/models/Customer';
+import Appointment from '@/lib/models/Appointment';
 
 // Get a specific customer by ID
 export async function GET(

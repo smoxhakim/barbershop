@@ -40,5 +40,7 @@ const BlockedTimeSlotSchema: Schema = new Schema(
 BlockedTimeSlotSchema.index({ date: 1, time: 1 }, { unique: true });
 
 // Export the model
-export const BlockedTimeSlot = mongoose.models.BlockedTimeSlot || 
+const BlockedTimeSlot = mongoose.models.BlockedTimeSlot || 
   mongoose.model<IBlockedTimeSlot>('BlockedTimeSlot', BlockedTimeSlotSchema);
+
+export default BlockedTimeSlot;
